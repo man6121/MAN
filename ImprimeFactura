@@ -1,0 +1,625 @@
+'-----------------------------------------------------------------
+'                                                                 '
+'   ADVANDSYS, Soluciones en Tecnologias de Informacion           '
+'   www.advandsys.com.mx         
+'
+'
+'	IMPRIME FACTURA 12-07-2012
+'   
+'   Incorpora:
+'   Campos para Mostrar Num Cuenta
+'   Compatibilidad para Notas de Credito
+'   Compatibilidad de Multiples Hojas
+'                           									 '
+'                                                                '
+'                         Developed by: Advandsys, JULIO DE 2012 '
+'----------------------------------------------------------------'
+
+
+
+
+'ESTABLECE VARIABLES GLOBALES.
+'--------------------------------------------------------
+Dim TotalPaginas
+Dim PaginaActual
+Dim UltimaPagina
+Dim nPaginasDoc
+Dim Paginas
+Dim intParts
+Dim rstFac
+Dim rstPartVentas
+Dim rstVentas
+Dim rstArticulos
+Dim strCadenaO
+Dim strUnidad
+Dim n
+Dim strSQL
+Dim nPaginas
+Dim nVenta
+Dim intImporteF
+Dim intImporte
+Dim intImpuesto
+
+
+Sub Main()
+
+
+CreaPreview
+
+End Sub
+
+
+
+Public Sub CreaPreview()
+
+Paginas=1
+UltimaPagina=0
+
+'ESTABLECE CONFIGURACION REGIONAL MEXICO
+'--------------------------------------------------------
+ SetLocale("es-mx")' 2058
+
+
+
+'DEFINIMOS LOS RECORDSET DE LA CONSULTA 
+'--------------------------------------------------------
+ Set rstVentas = CreateObject("ADODB.RecordSet")
+ Set rstFac = CreateObject("ADODB.RecordSet")
+ Set rstPartVentas = CreateObject("ADODB.RecordSet")
+ Set rstArticulos = CreateObject("ADODB.RecordSet")
+
+'----- Traemos el numero de la Factura de  ACCESS
+ strSQL=""
+ strSQL= "select * from efac where seriefolio='" & nFolio & "'"
+ rstFac.Open= cnnFE.execute((strSQL))
+
+ nVenta = rstFac("nventa") 
+ 
+ '----- Traemos la informacion de la Factura en Mybusiness ( Importe, Impuesto, Moneda )
+ 
+ strSQL=""
+ strSQL= "select * from ventas where venta=" & nVenta
+ rstVentas.Open= Conexion.execute((strSQL))
+ 
+ intImporteF = rstVentas("importe")
+ intImpuesto = rstVentas("impuesto")
+ strMoneda= rstVentas("Moneda")
+ 
+ strTipo_Doc = rstVentas("Tipo_DoC")
+ 
+ '----- Contamos cuantas partidas tiene la Factura
+ 
+ strSQL=""
+ strSQL= "select count(*) from partvta where venta = " &  nVenta
+ rstPartVentas.Open= Conexion.execute((strSQL))
+ intParts= rstPartVentas(0)
+ rstPartVentas.Close
+ 
+ 
+ '----- Traemos la informacion de las partidas de la Factura
+ strSQL=""
+ strSQL= "select * from partvta where venta=" & nVenta  & " order by observ"
+ rstPartVentas.Open= Conexion.execute((strSQL))
+
+
+ 
+nPaginas= intparts /23  'Dividimos  numero de registros / numero de partidas por pagina..
+
+nPaginas = FormatNumber(nPaginas,2)
+
+
+
+
+'SE DEFINEN AUTOMATICAMENTE EL NUMERO DE PAGINAS NECESARIAS PARA MOSTRAR TODA LA FACTURA
+'-----------------------------------------------------------------------------------------
+
+	If nPaginas < 1 Then
+	nPaginas = 1
+
+	End If
+
+	If nPaginas > 1  And  nPaginas < 2 Then
+	nPaginas = 2
+
+	End If
+
+	If nPaginas > 2  And  nPaginas <3 Then
+	nPaginas = 3
+
+	End If
+
+	If nPaginas > 3  And  nPaginas <4 Then
+	nPaginas = 4
+
+	End If
+
+'-----------------------------------------------------------------------------------------
+
+
+'PREPARAMOS EL CONTROL 
+'-------------------------------------------------------------------
+
+
+    VP.RemoveAllPageObjects
+    x=0
+    nPaginasDoc=1			 '----- Se establece pagina inicial
+    TotalPaginas = FormatNumber(nPaginas,0)  '----- Se establece el total de paginas
+    PaginaActual=1
+  
+
+  
+	Do Until nPaginas = 0
+      
+    VP.ObjectPageIndex = Paginas
+       
+    '-----configuracion del Control
+
+    VP.ObjectEdit = False
+    VP.AutoSize = True
+    VP.MouseZoom = True
+    
+    '-----Cargamos el Formato creado en EDF 2008
+
+   
+    VP.LoadScript strFormato1
+    
+  '----- Si hay mas de 23 partidas, Se establece la etiqueta que nos muestra el contador de Paginas
+    
+	If intParts > 23 Then
+   
+    vp.AddObject "F_PAGINAS", 1, 7990, -118, 807, 340, "PAGINAS", "", "FontSize=7;FontBold=1;FontItalic=0;FontUnderline=0; ForeColor=0;ObjectAlign=0;FontName=15;ObjectFontName=Arial", "FontSize=10;FontBold=0; ForeColor=RGB(0,0,0)"
+
+    End If
+
+    
+    
+    
+    'BUCLE PARA GUARDAR EN VARIABLES LOS DATOS DE LAS PARTIDAS (CANTIDAD, UNIDAD, DESCRIPCION, DESCUENTO, PRECIO,IMPORTE)
+    '---------------------------------------------------------------------------------------------------------------------   
+    Do Until rstPartVentas.EOF
+
+   		strSQL=""
+   		strSQL= "select unidad from prods where articulo='" & Trim(rstPartVentas.Fields("articulo"))  & "'"
+   		rstArticulos.Open= Conexion.execute((strSQL))  
+   		
+   		
+   		
+   		
+        If strtipo_doc ="DV" Or strtipo="DEV" Then
+        
+         
+        strcantidad = strcantidad & vbCrLf
+   		strcantidad = strcantidad & rstPartVentas.Fields("Cantidad") * -1
+        
+        intImporte = FormatCurrency(rstPartVentas.Fields("Precio") * ( 1- ( rstPartVentas.Fields("Descuento") / 100)) * rstPartVentas.Fields("Cantidad")* - 1 ,2)
+
+   		strImporte = strImporte & vbCrLf
+   		strImporte = strImporte & intImporte
+        
+      
+   
+       Else
+       
+   		strcantidad = strcantidad & vbCrLf
+   		strcantidad = strcantidad & rstPartVentas.Fields("Cantidad")
+   
+   
+        intImporte = FormatCurrency(rstPartVentas.Fields("Precio") * ( 1- ( rstPartVentas.Fields("Descuento") / 100)) * rstPartVentas.Fields("Cantidad"),2)
+
+   		strImporte = strImporte & vbCrLf
+   		strImporte = strImporte & intImporte
+   
+   
+      End If
+   
+   
+   		strCode = strCode & vbCrLf
+   		strCode = strCode + rstPartVentas.Fields("articulo")
+   
+  		strUnidad = strUnidad & vbCrLf
+  		
+   
+   			If Not Trim(rstArticulos.Fields("unidad"))="" Then
+   
+   				strUnidad = strUnidad + "" & rstArticulos.Fields("unidad")
+     
+   			Else
+   
+    			strUnidad = strUnidad + "PZA"
+   
+   			End If
+   
+    
+   		strDescripcion = strDescripcion & vbCrLf
+   		strDescripcion = strDescripcion & rstPartVentas.Fields("Observ")
+   
+   		strDesc = strDesc & vbCrLf
+   		strDesc = strDesc & rstPartVentas.Fields("Descuento")
+   
+
+   		IntPrecio = FormatCurrency(rstPartVentas.Fields("Precio") *  ( 1- ( rstPartVentas.Fields("Descuento") / 100)),2)
+   
+   		strPrecio = strPrecio & vbCrLf
+   		strPrecio = strPrecio & IntPrecio
+         
+   		rstPartVentas.MoveNext
+   		nRenglon = nRenglon + 380
+   		rstArticulos.close
+   
+           
+  		  n= n+1
+  		  x = x + 1
+  		  
+
+         
+          If (x <= 23) Or (x <= 23 And TotalPaginas > 1) Then 
+          
+          If nPaginasDoc < TotalPaginas Then
+     		 nPaginasDoc= nPaginasDoc + 1
+    		    		   		
+          End If
+          
+          
+          x=0
+        	'Exit Do
+        	        	 
+          End If  
+            
+ 
+             
+          If nPaginasDoc=TotalPaginas Then
+          
+          UltimaPagina = 1  
+          	
+          
+          End If
+    	
+ 
+    	
+    	
+    	
+    		If n=35  Then
+    		
+    		
+         	PaginaActual = PaginaActual + 1
+    		
+    	    n=0 
+    	   
+    		      			
+    		Exit Do
+    			
+     		End If
+    
+       
+   	VP.SetObjectData "F_PAGINAS", "PAGINA " & PaginaActual & " DE " & TotalPaginas 	
+   Loop
+   
+     
+    		
+	
+	
+	
+    nPaginasDoc=FormatNumber(nPaginasDoc,0)
+
+   	  If nPaginasDoc > TotalPaginas Then
+    	  
+    	  nPaginasDoc = TotalPaginas   
+    	  
+      End If
+
+
+    
+   	VP.SetObjectData "F_Cant", strcantidad
+   	VP.SetObjectData "F_Unidad", strUnidad
+   	VP.SetObjectData "F_Clave", strCode
+   	VP.SetObjectData "F_Descripcion", strDescripcion
+   	VP.SetObjectData "F_Desc", strDesc
+   	VP.SetObjectData "F_Precio", strPrecio
+   	VP.SetObjectData "F_Importe",strImporte
+   
+   
+    '---------Borramos Variables
+    
+   	strcantidad =""
+   	'intImporte=""
+   	strDescripcion=""
+   	strCode=""
+   	strPrecio=""
+   	strImporte=""
+   	strUnidad=""
+   
+          
+    
+    '---------Datos de Factura
+     'VP.SetObjectData "F_Serie", "" & rstFac.Fields("serie").Value
+     VP.SetObjectData "F_SerieFolio", "" & rstFac.Fields("Seriefolio").Value:
+     VP.SetObjectData "F_NumAprob", "" & rstFac.Fields("numaprobacion").Value
+     VP.SetObjectData "F_AnioAprob", "" & rstFac.Fields("anioaprobacion").Value
+     VP.SetObjectData "F_Fecha", "" & rstFac.Fields("fechahora").Value', "YYYY-MM-DD:hh:mm:ss")
+     
+     VP.SetObjectData "F_FAC_ORIGINAL", ""'rstFac.Fields("SerieOriginal").Value & rstFac.Fields("FolioOriginal").Value
+     VP.SetObjectData "F_FECHA_ORIGINAL", ""'rstFac.Fields("fechaoriginal").Value
+     VP.SetObjectData "F_IMPORTE_ORIGINAL", "" 'FormatCurrency(rstFac.Fields("importeoriginal").Value)
+     
+        
+      cALetra.Numero = FormatCurrency( intImporteF + intImpuesto,2)
+
+     
+     If strMoneda="MN" Then
+     
+     strCantidadLetra=  UCase(cALetra.ALetra)
+     VP.SetObjectData "F_MONEDA", "MXP"
+     
+     ElseIf strMoneda="USD" Then
+     
+       strCantidadLetra=  UCase(cALetra.ALetra)
+       strCantidadLetra = Replace(strCantidadLetra, "MN", "USD")
+       strCantidadLetra = Replace(strCantidadLetra, "PESOS", "DOLARES")
+       VP.SetObjectData "F_MONEDA", "USD"
+       
+     
+     End If
+
+     
+     VP.SetObjectData "F_Cantidad Letra", "" & strCantidadLetra
+     VP.SetObjectData "F_Certificado", "" & rstFac.Fields("numcertificado").Value
+     VP.SetObjectData "F_Sello", "" & rstFac.Fields("selloDigital").Value
+     
+     strCadenaO = rstFac.Fields("cadenaoriginal").Value
+
+     VP.SetObjectData "F_Cadena", strCadenaO 
+    
+    '---------Datos Generales del Cliente
+     VP.SetObjectData "R_Cliente", "CLIENTE : " & rstFac.Fields("clavecliente").Value
+     VP.SetObjectData "R_Nombre", "" & rstFac.Fields("recepnombre").Value
+     VP.SetObjectData "R_Calle", "" & rstFac.Fields("recepcalle").Value
+     VP.SetObjectData "R_NumExt", "" & rstFac.Fields("recepNumExt").Value
+     VP.SetObjectData "R_NumInt", "" & rstFac.Fields("recepNumInt").Value
+     VP.SetObjectData "R_Colonia", "" & rstFac.Fields("recepcolonia").Value
+     VP.SetObjectData "R_Localidad", "" & rstFac.Fields("receplocalidad").Value
+     VP.SetObjectData "R_Municipio", "" & rstFac.Fields("recepmunicipio").Value
+     VP.SetObjectData "R_Estado", "" & rstFac.Fields("recepEstado").Value
+     VP.SetObjectData "R_RFC", "RFC: " & rstFac.Fields("recepRFC").Value
+     VP.SetObjectData "R_Pais", "" & rstFac.Fields("recepPais").Value
+     VP.SetObjectData "R_Cp", "CP: " & rstFac.Fields("recepCodpos").Value
+     
+     'VP.SetObjectData "F_REGIMEN", "REGIMEN GENERAL DE LEY PERSONAS MORALES " 
+     VP.SetObjectData "F_EXPEDICION", "PUEBLA, PUEBLA "  
+   
+     VP.SetObjectData "F_FORMAPAGO", "" & UCase(rstVentas("formapago")) 
+   
+     VP.SetObjectData "F_METODOPAGO", "" & UCase(rstVentas("metodopago")) 
+     
+     '------- SE ANEXAN CAMPOS PARA NUMERO DE CUENTA, SE CREAN LOS OBJETOS
+     vp.AddObject "L_CUENTA", 1, 9533, 3076, 1302, 363, "NUM. CUENTA", "", "FontSize=8;FontBold=1;FontItalic=0;FontUnderline=0; ForeColor=0;ObjectAlign=0;FontName=15;ObjectFontName=Arial", "FontSize=10;FontBold=0; ForeColor=RGB(0,0,0)"
+     vp.AddObject "F_CUENTA", 1, 9541, 3315, 1258, 363, "NUM CUENTA", "", "FontSize=8;FontBold=1;FontItalic=0;FontUnderline=0; ForeColor=128;ObjectAlign=0;FontName=15;ObjectFontName=Arial", "FontSize=10;FontBold=0; ForeColor=RGB(0,0,0)"
+ 
+    
+    '----  TOMA DATOS DE LA CUENTA EN LOS OBJETOS CREADOS
+      VP.SetObjectData "F_CUENTA", "" & rstVentas.Fields("numCuenta").Value
+     
+     
+    
+   '------Totales de la Factura
+   
+   'ViewPro1.RemoveObject ""
+   
+   If nPaginas > 1 Then
+   
+   VP.RemoveObject  "F_Observ"
+   VP.RemoveObject  "F_Embarque" 
+   VP.RemoveObject  "F_Entrega"
+   VP.RemoveObject "F_Pedido"
+   VP.RemoveObject  "F_ImporteT"
+   VP.RemoveObject  "F_Descuento"
+   VP.RemoveObject  "F_SubTotal"
+   VP.RemoveObject  "F_IVA"
+   VP.RemoveObject  "F_Total"
+   VP.RemoveObject "tbrObject84"
+   VP.RemoveObject "picObject67"
+   VP.RemoveObject "txtObject68"
+   VP.RemoveObject "rctObject67"
+   VP.RemoveObject "txtObject42"
+   VP.RemoveObject "txtObject44"
+   VP.RemoveObject "F_Cantidad Letra"
+   VP.RemoveObject "F_Certificado"
+   VP.RemoveObject "txtObject68"
+   VP.RemoveObject "txtObject54"
+   VP.RemoveObject "F_Sello"
+   VP.RemoveObject "txtObject55"
+   VP.RemoveObject "F_Cadena"
+   VP.RemoveObject "txtObject36"
+   VP.RemoveObject "txtObject37"
+   VP.RemoveObject "txtObject38"
+   VP.RemoveObject "txtObject39"
+   VP.RemoveObject "txtObject40"
+   VP.RemoveObject "txtObject77"
+    VP.RemoveObject"rctObject71"
+    
+    VP.RemoveObject "txtObject74"
+    VP.RemoveObject "txtObject75"
+    VP.RemoveObject "picObject69"
+    VP.RemoveObject "picObject72"
+   Else
+   
+   	'VP.SetObjectData "F_PAGINAS", "PAGINA " & nPaginasDoc & " DE " & TotalPaginas	 
+
+
+ 
+  If (UltimaPagina = 1 And n >= 23)  Or (x <= 23 And nPaginasDoc > 1) Or (TotalPaginas <> nPaginasDoc )Then  
+
+   
+     'MUESTR LA INFORMACION EN LOS CAMPOS PERO LOS MUEVE HACIA ARRIBA
+   '--------------------------------------------------------------------------
+   
+   VP.SetObjectData "F_PAGINAS", "PAGINA " & TotalPaginas & " DE " & TotalPaginas 
+   VP.SetObjectData "F_Cantidad Letra", "" & strCantidadLetra
+   VP.SetObjectData "F_Certificado", "" & rstFac.Fields("numcertificado").Value
+   VP.SetObjectData "F_Sello", "" & rstFac.Fields("selloDigital").Value
+     
+    strCadenaO = rstFac.Fields("cadenaoriginal").Value
+
+   VP.SetObjectData "F_Cadena", strCadenaO  
+   VP.SetObjectData "F_Observ", "" & rstFac.Fields("observ").Value
+   VP.SetObjectData "F_Embarque", "" & rstFac.Fields("embarque").Value
+   VP.SetObjectData "F_Entrega", "" & rstFac.Fields("entrega").Value
+   VP.SetObjectData "F_Pedido", "" & rstFac.Fields("numpedido").Value   
+   VP.SetObjectData "F_ImporteT", "" & FormatCurrency(intImporteF)', "##,###.00")
+   VP.SetObjectData "F_Descuento", 0'"" & FormatCurrency(rstFac.Fields("importedesc").Value)', "##,##00")
+   VP.SetObjectData "F_SubTotal", "" & FormatCurrency(rstVentas("importe"))', "##,###.00")
+   VP.SetObjectData "F_IVA", "" & FormatCurrency(intImpuesto)', "##,###.00")
+   VP.SetObjectData "F_Total", "" & FormatCurrency( intImporteF + intImpuesto,2)', "##,###.00")
+   VP.SetObjectData "F_REGIMEN", "REGIMEN GENERAL DE LEY PERSONAS MORALES " 
+   VP.SetObjectData "F_EXPEDICION", "PUEBLA, PUEBLA "  
+   VP.SetObjectData "F_FORMAPAGO", "" & UCase(rstVentas("formapago")) 
+   VP.SetObjectData "F_METODOPAGO", "" & UCase(rstVentas("metodopago")) 
+
+    VP.SetObjectY "txtObject42",8799 'LEYENDA CANTIDAD CON LETRA
+    VP.SetObjectY "F_Cantidad Letra", 9073 
+    VP.SetObjectY "txtObject44",9538  ' LEYENDA CERTIFICADO
+    VP.SetObjectY "tbrObject84",9497  ' RECUADRO COLOR
+    VP.SetObjectY "F_Certificado", 9552
+    VP.SetObjectY "txtObject68",9866  'LEYENDA ESTE ES UNA REPRESENTACION GRAFICA DEL CFD    
+    VP.SetObjectY "txtObject54",10318 'LEYENDA SELLO DIGITAL
+    VP.SetObjectY "F_Sello", 10646  
+    VP.SetObjectY "txtObject55",10988 'LEYENDA CADENA ORIGINAL  
+    VP.SetObjectY "F_Cadena",11343
+    VP.SetObjectY "F_Observ", 5859
+    VP.SetObjectY "rctObject67",8772 ' CUADRO CONTENEDOR DE LOS TOTALES
+  
+    VP.SetObjectY "txtObject36", 8745	'ETIQUETA IMPORTE
+    VP.SetObjectY "txtObject37", 9004	'ETIQUETA DESCUENTO
+    VP.SetObjectY "txtObject38", 9210	'ETIQUETA SUBTOTAL
+    VP.SetObjectY "txtObject39", 9442	'ETIQUETA IMPUESTO
+    VP.SetObjectY "txtObject40", 9716	'ETIQUETA TOTAL     
+     
+    VP.SetObjectY "F_ImporteT", 8731
+    VP.SetObjectY "F_Descuento",8963
+    VP.SetObjectY "F_SubTotal",9210
+    VP.SetObjectY "F_IVA", 9428
+    VP.SetObjectY "F_Total", 9647
+ 
+'---------------
+   
+       
+         
+   Else
+
+   
+
+   
+   '-----------------------------------------------------------------------------------------
+   
+   VP.SetObjectData "F_Cantidad Letra", "" & strCantidadLetra
+   VP.SetObjectData "F_Certificado", "" & rstFac.Fields("numcertificado").Value
+   VP.SetObjectData "F_Sello", "" & rstFac.Fields("selloDigital").Value
+     
+    strCadenaO = rstFac.Fields("cadenaoriginal").Value
+
+   VP.SetObjectData "F_Cadena", strCadenaO  
+   VP.SetObjectData "F_Observ", "" & rstFac.Fields("observ").Value
+   VP.SetObjectData "F_Embarque", "" & rstFac.Fields("embarque").Value
+   VP.SetObjectData "F_Entrega", "" & rstFac.Fields("entrega").Value
+   VP.SetObjectData "F_Pedido", "" & rstFac.Fields("numpedido").Value   
+   VP.SetObjectData "F_ImporteT", "" & FormatCurrency(intImporteF)', "##,###.00")
+   VP.SetObjectData "F_Descuento", 0'"" & FormatCurrency(rstFac.Fields("importedesc").Value)', "##,##00")
+   VP.SetObjectData "F_SubTotal", "" & FormatCurrency(rstVentas("importe"))', "##,###.00")
+   VP.SetObjectData "F_IVA", "" & FormatCurrency(intImpuesto)', "##,###.00")
+   VP.SetObjectData "F_Total", "" & FormatCurrency( intImporteF + intImpuesto,2)', "##,###.00")
+  ' VP.SetObjectData "F_REGIMEN", "REGIMEN GENERAL DE LEY PERSONAS MORALES " 
+   VP.SetObjectData "F_EXPEDICION", "PUEBLA, PUEBLA "  
+   VP.SetObjectData "F_FORMAPAGO", "" & UCase(rstVentas("formapago")) 
+   VP.SetObjectData "F_METODOPAGO", "" & UCase(rstVentas("metodopago")) 
+   
+    
+  '-------------------------------------------------------------------------------------------
+  
+  
+  
+          
+    
+ End If
+  
+    
+   End If  
+ 
+
+   VP.StoreCurrentPageObjects
+
+
+
+    Paginas = Paginas +1
+   
+    nPaginas = nPaginas - 1
+    
+  Loop
+   
+   rstFac.Close
+   rstPartVentas.Close
+   
+    VP.ObjectPageIndex = 1
+   		  
+
+   
+    For i = 1 To VP.GetObjectPageCount
+        frmPreview.Paginas.AddItem "" & i
+    Next
+    
+  
+    frmPreview.Paginas.ListIndex = 0
+    
+ 
+    
+ 
+   '-----Update document
+    VP.UpdateDoc
+     VP.CenterPage
+ 
+    
+    
+    frmPreview.Show
+
+
+
+
+End Sub
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
